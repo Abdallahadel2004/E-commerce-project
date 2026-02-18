@@ -1,6 +1,7 @@
 import express from 'express';
 import connectDB from './config/db.js';
-import router from './routes/authRoutes.js';
+import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 export const app = express();
 app.use(express.json());
@@ -19,7 +20,8 @@ app.get('/home', (req, res) => {
     });
 });
 
-app.use('/auth', router);
+app.use('/auth', authRoutes);
+app.use('/users', userRoutes);
 
 const startServer = async () => {
     await connectDB();

@@ -25,5 +25,17 @@ const signinSchema = {
     },
 };
 
+const updateUserSchema = {
+    type: 'object',
+    properties: {
+        name: { type: 'string', minLength: 3 },
+        phone: { type: 'string', minLength: 10 },
+        address: { type: 'string' },
+    },
+
+    additionalProperties: false,
+};
+
 export const validateSignup = ajv.compile(signupSchema);
 export const validateSignin = ajv.compile(signinSchema);
+export const validateUserUpdate = ajv.compile(updateUserSchema);

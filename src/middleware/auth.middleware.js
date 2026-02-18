@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import User from '../models/user.model.js';
 
 export const auth = async (req, res, next) => {
     try {
@@ -15,7 +15,7 @@ export const auth = async (req, res, next) => {
         if (!token) {
             return res.status(401).json({
                 success: false,
-                timstamp: new Date(),
+                timestamp: new Date(),
                 message: 'Please Signin',
             });
         }
@@ -45,26 +45,37 @@ export const auth = async (req, res, next) => {
 
 export const authorize = (Model) => {
     return async (req, res, next) => {
-        const resource = await Model.findById(req.params.id);
+        try {
+            const resource = await Model.findById(req.params.id);
 
-        if (!resource) {
-            return res
-                .status(404)
-                .json({ timestamp: new Date(), message: 'Not found' });
-        }
+            if (!resource) {
+                return res.status(404).json({
+                    timestamp: new Date(),
+                    message: `${Model.modelName} Not found`,
+                });
+            }
 
-        if (req.user.role === 'admin') {
+            if (req.user.role === 'admin') {
+                req.resource = resource;
+                return next();
+            }
+
+            if (Model.modelName === 'User') {
+                if (req.user._id.toString() !== resource._id.toString()) {
+                    return res.status(403).json({ message: 'Not Allowed' });
+                }
+            } else {
+                if (resource.user_id.toString() !== req.user._id.toString()) {
+                    return res.status(403).json({ message: 'Not Allowed' });
+                }
+            }
+
             req.resource = resource;
-            return next();
+            next();
+        } catch (error) {
+            return res
+                .status(500)
+                .json({ message: 'Server Error', error: error.message });
         }
-
-        if (resource['user_id'].toString() !== req.user._id.toString()) {
-            return res.status(403).json({
-                message: 'Not Allowed',
-            });
-        }
-
-        req.resource = resource;
-        next();
     };
 };

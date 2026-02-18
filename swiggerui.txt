@@ -41,3 +41,151 @@ http://localhost:3000/auth/signin [post]
   "email": "mahmoud@gmail.com",
   "password": "000000"
 }
+
+
+
+=================== user managment api========================
+
+(GET all users)
+http://localhost:3000/users?page=1&limit=10&search=mahmoud [GET]
+
+- query params:
+  - page (optional, default: 1)
+  - limit (optional, default: 10)
+  - search (optional, string to search by name)
+
+Example success response:
+{
+  "timestamp": "2026-02-18T00:00:00.000Z",
+  "success": true,
+  "page": 1,
+  "pages": 2,
+  "UsersNumber": 15,
+  "users": [
+    {
+      "_id": "64f2b7a1f8e3c1234567890a",
+      "name": "Mahmoud Ramadan",
+      "email": "mahmoud@gmail.com",
+      "phone": "05889985",
+      "address": "matai",
+      "role": "customer",
+      "createdAt": "2026-02-17T22:00:00.000Z",
+      "updatedAt": "2026-02-17T22:00:00.000Z"
+    }
+  ]
+}
+
+---------------------------------------------------
+
+(UPDATE user)
+http://localhost:3000/users/:id [PUT]
+
+- body:
+{
+  "name": "Mahmoud R",
+  "phone": "01112223344",
+  "address": "Cairo"
+}
+
+Example error (validation):
+{
+  "timestamp": "2026-02-18T00:00:00.000Z",
+  "success": false,
+  "errors": [
+    { "message": "Name must be at least 3 characters" },
+    { "message": "Phone number is invalid" }
+  ]
+}
+
+Example error (not found):
+{
+  "timestamp": "2026-02-18T00:00:00.000Z",
+  "success": false,
+  "message": "User not found"
+}
+
+Example error (not authorized):
+{
+  "timestamp": "2026-02-18T00:00:00.000Z",
+  "success": false,
+  "message": "Not allowed"
+}
+
+---------------------------------------------------
+
+(DELETE user)
+http://localhost:3000/users/:id [DELETE]
+
+Example error (admin trying to delete himself):
+{
+  "timestamp": "2026-02-18T00:00:00.000Z",
+  "success": false,
+  "message": "Admin cannot delete himself"
+}
+
+Example error (user not found):
+{
+  "timestamp": "2026-02-18T00:00:00.000Z",
+  "success": false,
+  "message": "User not found"
+}
+
+Example success:
+{
+  "timestamp": "2026-02-18T00:00:00.000Z",
+  "success": true,
+  "message": "User deleted successfully"
+}
+
+---------------------------------------------------
+
+(CHANGE user role)
+http://localhost:3000/users/:id/role [PATCH]
+
+- body:
+{
+  "role": "admin"
+}
+
+Rules:
+- Admin cannot change his own role to customer
+- Admin can change any other user role
+- Customer can be promoted to admin by an admin
+
+Example error (invalid role):
+{
+  "timestamp": "2026-02-18T00:00:00.000Z",
+  "success": false,
+  "message": "Invalid role"
+}
+
+Example error (admin trying to downgrade self):
+{
+  "timestamp": "2026-02-18T00:00:00.000Z",
+  "success": false,
+  "message": "Admins only can change role"
+}
+
+Example error (user not found):
+{
+  "timestamp": "2026-02-18T00:00:00.000Z",
+  "success": false,
+  "message": "User not found"
+}
+
+Example success:
+{
+  "timestamp": "2026-02-18T00:00:00.000Z",
+  "success": true,
+  "message": "Role updated successfully",
+  "user": {
+    "_id": "64f2b7a1f8e3c1234567890a",
+    "name": "Mahmoud Ramadan",
+    "email": "mahmoud@gmail.com",
+    "phone": "05889985",
+    "address": "Matai",
+    "role": "admin",
+    "createdAt": "2026-02-17T22:00:00.000Z",
+    "updatedAt": "2026-02-18T00:00:00.000Z"
+  }
+}
