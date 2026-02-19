@@ -2,6 +2,7 @@ import User from '../models/user.model.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { validateSignin, validateSignup } from '../middleware/validation.js';
+import sendEmail from '../utils/emailService.js';
 
 export const signup = async (req, res) => {
     try {
@@ -36,6 +37,12 @@ export const signup = async (req, res) => {
             phone,
             address,
         });
+
+        await sendEmail(
+            email,
+            `Welcome to our Website Mr/Ms: ${name}`,
+            'Welcome.'
+        );
 
         res.status(201).json({
             timestamp: new Date(),
