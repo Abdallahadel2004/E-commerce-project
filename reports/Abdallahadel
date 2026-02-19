@@ -1,0 +1,10 @@
+-I make the cart controller ,routes and models 
+-optionalAuth middleware that checks if user is logged in or a guest to handle that the guest can add item to cart
+-getOrCreateCart request that handles both guest and logged-in users creates 
+-used cookies for guest cart that live for 30 days 
+-I handled the guest to user cart merge when the guest logs in the cart data will be merged to the user cart and the guest cart will be deleted 
+-addtoCart request that validates product exists checks stock including what is already in cart  creates or updates cart item
+-removeItemFromCart request that finds item in cart and deletes it
+-updateCartItemQuantity request that update the quantity of an item in the cart and it checks stock before updating 
+-getCart request that populates product details calculates itemTotal and totalPrice
+-clearCart request that deletes all items from the cart

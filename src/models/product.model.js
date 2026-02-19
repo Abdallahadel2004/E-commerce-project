@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const productSchema = new mongoose.Schema({
   // Basic Information
@@ -216,7 +216,7 @@ const productSchema = new mongoose.Schema({
 
 
 
-/ Virtual for discount percentage
+// Virtual for discount percentage
 productSchema.virtual('discountPercentage').get(function() {
   if (this.compareAtPrice && this.compareAtPrice > this.price) {
     return Math.round(((this.compareAtPrice - this.price) / this.compareAtPrice) * 100);
@@ -393,4 +393,4 @@ productSchema.statics.getLowStockProducts = function(sellerId) {
 };
 
 const Product = mongoose.model('Product', productSchema);
-module.exports = Product;
+export default Product;
