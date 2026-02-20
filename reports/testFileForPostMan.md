@@ -5,7 +5,7 @@ WISHLIST TESTS
 1. Get Wishlist
 
 Method: GET
-URL: http://localhost:3000/api/wishlist
+URL: http://localhost:3000/api/wishlists
 Headers:
 
 text
@@ -13,7 +13,7 @@ Authorization: Bearer YOUR_JWT_TOKEN
 2. Add to Wishlist
 
 Method: POST
-URL: http://localhost:3000/api/wishlist/add/PRODUCT_ID_HERE
+URL: http://localhost:3000/api/wishlists/add/PRODUCT_ID_HERE
 Headers:
 
 text
@@ -22,7 +22,7 @@ Body: none
 3. Remove from Wishlist
 
 Method: DELETE
-URL: http://localhost:3000/api/wishlist/remove/PRODUCT_ID_HERE
+URL: http://localhost:3000/api/wishlists/remove/PRODUCT_ID_HERE
 Headers:
 
 text
@@ -30,7 +30,7 @@ Authorization: Bearer YOUR_JWT_TOKEN
 4. Clear Wishlist
 
 Method: DELETE
-URL: http://localhost:3000/api/wishlist/clear
+URL: http://localhost:3000/api/wishlists/clear
 Headers:
 
 text

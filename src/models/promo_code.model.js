@@ -32,10 +32,6 @@ const promoSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  perUserLimit: {
-    type: Number,
-    default: 1
-  },
   validFrom: {
     type: Date,
     required: true
