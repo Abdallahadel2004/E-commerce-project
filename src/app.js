@@ -8,6 +8,7 @@ import productRoutes from './routes/productRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 import wishlistRoutes from './routes/wishlistRoutes.js';
+import reviewRoutes  from './routes/reviewRoutes.js';
 
 
 export const app = express();
@@ -36,6 +37,7 @@ app.use('/product',productRoutes);
 app.use('/category',categoryRoutes);
 app.use('/orders',orderRoutes);
 app.use('/wishlist', wishlistRoutes);
+app.use('/reviews',reviewRoutes);
 
 const startServer = async () => {
     await connectDB();
