@@ -6,6 +6,10 @@ const OrderSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  orderNumber: {
+    type: String,
+    unique: true
+  },
   items: [{
     product: {
       type: mongoose.Schema.Types.ObjectId,
@@ -44,26 +48,9 @@ const OrderSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
     default: 'pending'
-  },
-  orderNumber: {
-    type: String,
-    unique: true
   }
 }, {
   timestamps: true
-});
-
-
-OrderSchema.pre('save', async function(next) {
-  if (!this.orderNumber) {
-    const date = new Date();
-    const year = date.getFullYear().toString().slice(-2);
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    this.orderNumber = `ORD-${year}${month}${day}-${random}`;
-  }
-  next();
 });
 
 const Order = mongoose.model('Order', OrderSchema);

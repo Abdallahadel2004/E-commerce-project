@@ -19,13 +19,14 @@ const categorySchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
-
+/*
 categorySchema.pre('save', function(next) {
   if (!this.slug) {
     this.slug = this.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   }
   next();
 });
+*/
 
 const Category = mongoose.model('Category', categorySchema);
 export default Category;

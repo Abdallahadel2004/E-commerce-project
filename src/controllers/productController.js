@@ -1,7 +1,6 @@
 import Product from '../models/product.js';
 import Category from '../models/category.js';
 
-
 export const getProducts = async (req, res) => {
   try {
     const { page = 1, limit = 10, category, minPrice, maxPrice, search } = req.query;
@@ -22,7 +21,7 @@ export const getProducts = async (req, res) => {
 
     const products = await Product.find(query)
       .populate('category', 'name')
-      .populate('user', 'name email') 
+      .populate('createdBy', 'name email') // Changed from 'user' to 'createdBy'
       .skip(skip)
       .limit(parseInt(limit))
       .sort('-createdAt');
@@ -42,12 +41,11 @@ export const getProducts = async (req, res) => {
   }
 };
 
-
 export const getProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
       .populate('category', 'name')
-      .populate('user', 'name email'); 
+      .populate('createdBy', 'name email'); // Changed from 'user' to 'createdBy'
 
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
@@ -64,7 +62,6 @@ export const getProduct = async (req, res) => {
 
 export const createProduct = async (req, res) => {
   try {
-  
     if (req.user.role !== 'admin') {
       return res.status(403).json({ 
         success: false, 
@@ -89,7 +86,7 @@ export const createProduct = async (req, res) => {
       description,
       price,
       category,
-      user: req.user.id, 
+      createdBy: req.user.id, // Changed from 'user' to 'createdBy'
       sku,
       inventory: { quantity: inventory || 0 }
     });
@@ -100,10 +97,8 @@ export const createProduct = async (req, res) => {
   }
 };
 
-
 export const updateProduct = async (req, res) => {
   try {
-  
     if (req.user.role !== 'admin') {
       return res.status(403).json({ 
         success: false, 
@@ -129,10 +124,8 @@ export const updateProduct = async (req, res) => {
   }
 };
 
-
 export const deleteProduct = async (req, res) => {
   try {
- 
     if (req.user.role !== 'admin') {
       return res.status(403).json({ 
         success: false, 
@@ -156,10 +149,8 @@ export const deleteProduct = async (req, res) => {
   }
 };
 
-
 export const addImages = async (req, res) => {
   try {
-
     if (req.user.role !== 'admin') {
       return res.status(403).json({ 
         success: false, 
@@ -185,11 +176,10 @@ export const addImages = async (req, res) => {
   }
 };
 
-
 export const getUserProducts = async (req, res) => {
   try {
     const products = await Product.find({ 
-      user: req.user.id,
+      createdBy: req.user.id, // Changed from 'user' to 'createdBy'
       deletedAt: null 
     }).sort('-createdAt');
 
@@ -199,10 +189,8 @@ export const getUserProducts = async (req, res) => {
   }
 };
 
-
 export const getLowStockProducts = async (req, res) => {
   try {
- 
     if (req.user.role !== 'admin') {
       return res.status(403).json({ 
         success: false, 
@@ -235,7 +223,7 @@ export const searchProducts = async (req, res) => {
       deletedAt: null
     })
     .populate('category', 'name')
-    .populate('user', 'name email')
+    .populate('createdBy', 'name email') // Changed from 'user' to 'createdBy'
     .skip(skip)
     .limit(parseInt(limit))
     .sort({ score: { $meta: 'textScore' } });

@@ -1,4 +1,4 @@
-import PromoCode from '../models/PromoCode.js';
+import PromoCode from '../models/promo_code.model.js';
 
 export const validatePromo = async (req, res) => {
   try {

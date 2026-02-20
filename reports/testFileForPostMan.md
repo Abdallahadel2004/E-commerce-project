@@ -5,7 +5,7 @@ WISHLIST TESTS
 1. Get Wishlist
 
 Method: GET
-URL: http://localhost:3000/wishlist
+URL: http://localhost:3000/api/wishlist
 Headers:
 
 text
@@ -13,7 +13,7 @@ Authorization: Bearer YOUR_JWT_TOKEN
 2. Add to Wishlist
 
 Method: POST
-URL: http://localhost:3000/wishlist/add/PRODUCT_ID_HERE
+URL: http://localhost:3000/api/wishlist/add/PRODUCT_ID_HERE
 Headers:
 
 text
@@ -22,7 +22,7 @@ Body: none
 3. Remove from Wishlist
 
 Method: DELETE
-URL: http://localhost:3000/wishlist/remove/PRODUCT_ID_HERE
+URL: http://localhost:3000/api/wishlist/remove/PRODUCT_ID_HERE
 Headers:
 
 text
@@ -30,7 +30,7 @@ Authorization: Bearer YOUR_JWT_TOKEN
 4. Clear Wishlist
 
 Method: DELETE
-URL: http://localhost:3000/wishlist/clear
+URL: http://localhost:3000/api/wishlist/clear
 Headers:
 
 text
@@ -40,7 +40,7 @@ PROMO CODE TESTS
 5. Validate Promo Code
 
 Method: POST
-URL: http://localhost:3000/promo/validate
+URL: http://localhost:3000/api/promo/validate
 Headers: Content-Type: application/json
 Body:
 json
@@ -51,7 +51,7 @@ json
 6. Create Promo (Admin)
 
 Method: POST
-URL: http://localhost:3000/promo
+URL: http://localhost:3000/api/promo
 Headers:
 
 text
@@ -72,7 +72,7 @@ json
 7. Get All Promos (Admin)
 
 Method: GET
-URL: http://localhost:3000/promo
+URL: http://localhost:3000/api/promo
 Headers:
 
 text
@@ -80,7 +80,7 @@ Authorization: Bearer ADMIN_TOKEN
 8. Update Promo (Admin)
 
 Method: PUT
-URL: http://localhost:3000/promo/PROMO_ID_HERE
+URL: http://localhost:3000/api/promo/PROMO_ID_HERE
 Headers:
 
 text
@@ -95,7 +95,7 @@ json
 9. Delete Promo (Admin)
 
 Method: DELETE
-URL: http://localhost:3000/promo/PROMO_ID_HERE
+URL: http://localhost:3000/api/promo/PROMO_ID_HERE
 Headers:
 
 text
@@ -105,7 +105,7 @@ REVIEW TESTS
 10. Add Review
 
 Method: POST
-URL: http://localhost:3000/reviews
+URL: http://localhost:3000/api/reviews
 Headers:
 
 text
@@ -123,11 +123,11 @@ json
 11. Get Product Reviews
 
 Method: GET
-URL: http://localhost:3000/reviews/product/PRODUCT_ID_HERE?page=1&limit=10
+URL: http://localhost:3000/api/reviews/product/PRODUCT_ID_HERE?page=1&limit=10
 12. Get My Reviews
 
 Method: GET
-URL: http://localhost:3000/reviews/my-reviews
+URL: http://localhost:3000/api/reviews/my-reviews
 Headers:
 
 text
@@ -135,7 +135,7 @@ Authorization: Bearer YOUR_JWT_TOKEN
 13. Update Review
 
 Method: PUT
-URL: http://localhost:3000/reviews/REVIEW_ID_HERE
+URL: http://localhost:3000/api/reviews/REVIEW_ID_HERE
 Headers:
 
 text
@@ -150,7 +150,7 @@ json
 14. Delete Review
 
 Method: DELETE
-URL: http://localhost:3000/reviews/REVIEW_ID_HERE
+URL: http://localhost:3000/api/reviews/REVIEW_ID_HERE
 Headers:
 
 text

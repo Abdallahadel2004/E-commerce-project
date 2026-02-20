@@ -1,11 +1,28 @@
-import Review from '../models/review.model.js';
+import Review from '../models/Review.js';
+import Product from '../models/product.js';
+import mongoose from 'mongoose';
 
+
+// @desc    Add review
+// @route   POST /api/reviews
+// @access  Private
 export const addReview = async (req, res) => {
   try {
-    const { product, rating, title, comment } = req.body;
+    const { product, rating, title, comment, images } = req.body;
+
+    // Check if product exists
+    const productExists = await Product.findById(product);
+    if (!productExists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    // Check if user already reviewed this product
     const existingReview = await Review.findOne({
-      user: req.user._id,
-      product
+      product: product,
+      user: req.user.id
     });
 
     if (existingReview) {
@@ -16,11 +33,12 @@ export const addReview = async (req, res) => {
     }
 
     const review = await Review.create({
-      user: req.user._id,
-      product,
+      product: product,
+      user: req.user.id,
       rating,
       title,
       comment,
+      images: images || []
     });
 
     res.status(201).json({
@@ -35,6 +53,9 @@ export const addReview = async (req, res) => {
   }
 };
 
+// @desc    Get product reviews
+// @route   GET /api/reviews/product/:productId
+// @access  Public
 export const getProductReviews = async (req, res) => {
   try {
     const { productId } = req.params;
@@ -48,8 +69,9 @@ export const getProductReviews = async (req, res) => {
 
     const total = await Review.countDocuments({ product: productId });
 
+    // Calculate average rating
     const avgRating = await Review.aggregate([
-      { $match: { product: mongoose.Types.ObjectId(productId) } },
+      { $match: { product: productId } },
       { $group: { _id: null, average: { $avg: '$rating' } } }
     ]);
 
@@ -69,10 +91,12 @@ export const getProductReviews = async (req, res) => {
   }
 };
 
-
+// @desc    Get my reviews
+// @route   GET /api/reviews/my-reviews
+// @access  Private
 export const getMyReviews = async (req, res) => {
   try {
-    const reviews = await Review.find({ user: req.user._id })
+    const reviews = await Review.find({ user: req.user.id })
       .populate('product', 'name images')
       .sort('-createdAt');
 
@@ -89,7 +113,9 @@ export const getMyReviews = async (req, res) => {
   }
 };
 
-
+// @desc    Update review
+// @route   PUT /api/reviews/:id
+// @access  Private
 export const updateReview = async (req, res) => {
   try {
     let review = await Review.findById(req.params.id);
@@ -100,7 +126,9 @@ export const updateReview = async (req, res) => {
         message: 'Review not found'
       });
     }
-    if (review.user.toString() !== req.user._id.toString()) {
+
+    // Check ownership
+    if (review.user.toString() !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized'
@@ -125,6 +153,9 @@ export const updateReview = async (req, res) => {
   }
 };
 
+// @desc    Delete review
+// @route   DELETE /api/reviews/:id
+// @access  Private
 export const deleteReview = async (req, res) => {
   try {
     const review = await Review.findById(req.params.id);
@@ -136,14 +167,15 @@ export const deleteReview = async (req, res) => {
       });
     }
 
-    if (review.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    // Check ownership
+    if (review.user.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized'
       });
     }
 
-    await review.remove();
+    await review.deleteOne();
 
     res.json({
       success: true,
