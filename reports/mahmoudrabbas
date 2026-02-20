@@ -1,3 +1,4 @@
+- user management endpoints [updateUser, changeRole, deleteUser, getAllUsers with pagination and validation and secure endpoints]
 - created the auth api signin, signup [routes, controller, valiation]
 - validation with ajv libariry instead of joi libarary
 - authorization auth middleware [we will put it in every routes to check if user logged and has token]
