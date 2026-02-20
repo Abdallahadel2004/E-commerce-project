@@ -5,10 +5,16 @@ import { validateSignin, validateSignup } from '../middleware/validation.js';
 import sendEmail from '../utils/emailService.js';
 
 export const signup = async (req, res) => {
+    console.log('1');
     try {
+        console.log('2');
+
         const valid = validateSignup(req.body);
+        console.log('3');
 
         if (!valid) {
+            console.log('4');
+
             return res.status(400).json({
                 timestamp: new Date(),
                 success: false,
@@ -17,8 +23,10 @@ export const signup = async (req, res) => {
         }
 
         const { name, email, password, phone, address } = req.body;
+        console.log('4');
 
         const existingUser = await User.findOne({ email });
+        console.log('5');
 
         if (existingUser) {
             return res.status(400).json({
@@ -27,8 +35,10 @@ export const signup = async (req, res) => {
                 message: 'Email already exists',
             });
         }
+        console.log('6');
 
         const hashedPassword = await bcrypt.hash(password, 10);
+        console.log('7');
 
         const user = await User.create({
             name,
@@ -38,11 +48,15 @@ export const signup = async (req, res) => {
             address,
         });
 
+        console.log('8');
+
         await sendEmail(
             email,
             `Welcome to our Website Mr/Ms: ${name}`,
             'Welcome.'
         );
+
+        console.log('9');
 
         res.status(201).json({
             timestamp: new Date(),
@@ -56,6 +70,8 @@ export const signup = async (req, res) => {
             },
         });
     } catch (error) {
+        console.log('10');
+
         res.status(500).json({
             timestamp: new Date(),
             success: false,
