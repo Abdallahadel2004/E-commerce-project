@@ -18,4 +18,5 @@
 
  - make wishlist( model - controller - routes)
  - make review (model , controller , routes )
+ - make promo code (model , controller , routes )
 
