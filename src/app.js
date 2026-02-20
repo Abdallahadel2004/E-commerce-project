@@ -26,9 +26,10 @@ app.get('/home', (req, res) => {
 
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
-app.use('/products', productRoutes);
+app.use('/api/products', productRoutes);
 app.use('/cart', cartRoutes);
 app.use('/orders', orderRoutes);
+app.use('/api/categories', categoryRoutes);
 
 const startServer = async () => {
     await connectDB();
