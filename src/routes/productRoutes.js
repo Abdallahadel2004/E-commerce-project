@@ -1,38 +1,26 @@
-import express from "express";
+import express from 'express';
 import {
-    createProduct,
     getProducts,
-    getFeaturedProducts,
-    getProductsByCategory,
-    getProductById,
+    getProduct,
+    createProduct,
     updateProduct,
-    uploadImages,
     deleteProduct,
-    deleteImage,
-    setPrimaryImage,
-    searchProducts,
-    deleteProduct,
-    deleteImage,
-    checkStock,
-    bulkUpdateProducts
-
-} from "../controllers/productController.js";
+    addImages,
+    getUserProducts,
+    getLowStockProducts,
+    searchProducts
+} from '../controllers/productController.js';
+import { protect, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
-
-router.post("/", createProduct);
-router.get("/", getProducts);
-router.get("/featured", getFeaturedProducts);
-router.get("/category/:categoryId", getProductsByCategory);
-router.get("/search", searchProducts);
-router.get("/:id", getProductById);
-router.put("/:id", updateProduct);
-router.post("/:id/images", uploadImages);
-router.delete("/:id", deleteProduct);
-router.delete("/:id/images/:imageId", deleteImage);
-router.put("/:id/images/:imageId/primary", setPrimaryImage);
-router.get("/:id/stock", checkStock);
-router.put("/bulk-update", bulkUpdateProducts); 
-
-
-export default router;  
+router.get('/', getProducts);
+router.get('/search', searchProducts);
+router.get('/:id', getProduct);
+router.use(protect);
+router.get('/user/me', getUserProducts);
+router.post('/', authorize('admin'), createProduct);
+router.put('/:id', authorize('admin'), updateProduct);
+router.delete('/:id', authorize('admin'), deleteProduct);
+router.post('/:id/images', authorize('admin'), addImages);
+router.get('/admin/low-stock', authorize('admin'), getLowStockProducts);
+export default router;
