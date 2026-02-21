@@ -8,7 +8,8 @@ const OrderSchema = new mongoose.Schema({
   },
   orderNumber: {
     type: String,
-    unique: true
+    unique: true,
+    sparse: true 
   },
   items: [{
     product: {
@@ -52,6 +53,8 @@ const OrderSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+
 
 const Order = mongoose.model('Order', OrderSchema);
 export default Order;
