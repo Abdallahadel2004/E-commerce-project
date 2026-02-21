@@ -2,6 +2,7 @@ import Product from '../models/product.js';
 import Category from '../models/category.js';
 
 // GET all products with filters and pagination
+
 export const getProducts = async (req, res) => {
     try {
         const {
@@ -75,12 +76,10 @@ export const getProduct = async (req, res) => {
 export const createProduct = async (req, res) => {
     try {
         if (req.user.role !== 'admin') {
-            return res
-                .status(403)
-                .json({
-                    success: false,
-                    message: 'Only admin can create products',
-                });
+            return res.status(403).json({
+                success: false,
+                message: 'Only admin can create products',
+            });
         }
 
         const { name, description, price, category, sku, inventory } = req.body;
@@ -119,12 +118,10 @@ export const createProduct = async (req, res) => {
 export const updateProduct = async (req, res) => {
     try {
         if (req.user.role !== 'admin') {
-            return res
-                .status(403)
-                .json({
-                    success: false,
-                    message: 'Only admin can update products',
-                });
+            return res.status(403).json({
+                success: false,
+                message: 'Only admin can update products',
+            });
         }
 
         const product = await Product.findByIdAndUpdate(
@@ -152,12 +149,10 @@ export const updateProduct = async (req, res) => {
 export const deleteProduct = async (req, res) => {
     try {
         if (req.user.role !== 'admin') {
-            return res
-                .status(403)
-                .json({
-                    success: false,
-                    message: 'Only admin can delete products',
-                });
+            return res.status(403).json({
+                success: false,
+                message: 'Only admin can delete products',
+            });
         }
 
         const product = await Product.findById(req.params.id);
@@ -221,12 +216,10 @@ export const getUserProducts = async (req, res) => {
 export const getLowStockProducts = async (req, res) => {
     try {
         if (req.user.role !== 'admin') {
-            return res
-                .status(403)
-                .json({
-                    success: false,
-                    message: 'Only admin can view low stock products',
-                });
+            return res.status(403).json({
+                success: false,
+                message: 'Only admin can view low stock products',
+            });
         }
 
         const products = await Product.find({
