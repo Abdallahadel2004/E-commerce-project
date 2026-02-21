@@ -1,37 +1,37 @@
-import Order from '../models/order.model.js ';
+import Order from '../models/Order.js ';
 
 // @desc    Create new order
 // @route   POST /api/orders
 // @access  Private
 export const createOrder = async (req, res) => {
-    try {
-        const { items, shippingAddress, paymentMethod } = req.body;
+  try {
+    const { items, shippingAddress, paymentMethod } = req.body;
 
-        const totalAmount = items.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0
-        );
+    // Calculate total amount
+    const totalAmount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-        const order = await Order.create({
-            user: req.user.id,
-            items,
-            totalAmount,
-            shippingAddress,
-            paymentMethod,
-            orderStatus: 'pending',
-            paymentStatus: 'pending',
-        });
+    // Create order
+    const order = await Order.create({
+      user: req.user.id,
+      orderNumber: `ORD-${Date.now()}`,
+      items,
+      totalAmount,
+      shippingAddress,
+      paymentMethod,
+      orderStatus: 'pending',
+      paymentStatus: 'pending'
+    });
 
-        res.status(201).json({
-            success: true,
-            data: order,
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message,
-        });
-    }
+    res.status(201).json({
+      success: true,
+      data: order
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
 // @desc    Get user orders

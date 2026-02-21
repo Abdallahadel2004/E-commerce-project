@@ -174,29 +174,30 @@ export const deleteProduct = async (req, res) => {
 
 // ADD images to product (Admin only)
 export const addImages = async (req, res) => {
-    try {
-        if (req.user.role !== 'admin') {
-            return res
-                .status(403)
-                .json({ success: false, message: 'Only admin can add images' });
-        }
-
-        const product = await Product.findById(req.params.id);
-        if (!product) {
-            return res
-                .status(404)
-                .json({ success: false, message: 'Product not found' });
-        }
-
-        const { images } = req.body;
-        for (const img of images) {
-            await product.addImage(img);
-        }
-
-        res.json({ success: true, images: product.images });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+  try {
+    const product = await Product.findById(req.params.id);
+    
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
+
+    const { images } = req.body;
+
+    // Add images directly to the array
+    for (const img of images) {
+      // If this is the first image, make it primary
+      if (product.images.length === 0) {
+        img.isPrimary = true;
+      }
+      product.images.push(img);
+    }
+
+    await product.save();
+
+    res.json({ success: true, images: product.images });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 // GET products created by current user
