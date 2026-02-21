@@ -1,11 +1,11 @@
-import PromoCode from '../models/promo_code.model.js';
+import PromoCode from '../models/promoCode.js';
 
 // @desc    Get all promo codes
 // @route   GET /api/promos
 // @access  Admin
 export const getPromos = async (req, res) => {
   try {
-    const promos = await PromoCode.find().sort('-createdAt');
+    const promos = await PromoCode.find({ isActive: true });
     res.json({
       success: true,
       count: promos.length,
