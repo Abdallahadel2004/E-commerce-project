@@ -48,11 +48,7 @@ export const signup = async (req, res) => {
       address,
     });
 
-    console.log("8");
-
     await sendEmail(req.body.email);
-
-    console.log("9");
 
     res.status(201).json({
       timestamp: new Date(),
@@ -63,6 +59,7 @@ export const signup = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        isConfirmed: user.isConfirmed,
       },
     });
   } catch (error) {
@@ -78,12 +75,11 @@ export const signup = async (req, res) => {
 
 export const signin = async (req, res) => {
   try {
+    // Validate request body
     const valid = validateSignin(req.body);
-
     if (!valid) {
       return res.status(400).json({
         timestamp: new Date(),
-
         success: false,
         errors: validateSignin.errors,
       });
@@ -91,8 +87,8 @@ export const signin = async (req, res) => {
 
     const { email, password } = req.body;
 
+    // Check if user exists
     const user = await User.findOne({ email });
-
     if (!user) {
       return res.status(400).json({
         timestamp: new Date(),
@@ -101,23 +97,33 @@ export const signin = async (req, res) => {
       });
     }
 
+    // Check if password matches
     const isMatch = await bcrypt.compare(password, user.password);
-
     if (!isMatch) {
       return res.status(400).json({
         timestamp: new Date(),
-
         success: false,
         message: "Invalid Email or password",
       });
     }
 
+    // Check if email is confirmed
+    if (user.isConfrmed === false) {
+      return res.status(401).json({
+        timestamp: new Date(),
+        success: false,
+        message: "Please verify your email before signing in",
+      });
+    }
+
+    // Generate JWT token
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "2d" },
     );
 
+    // Respond with success
     res.status(200).json({
       timestamp: new Date(),
       success: true,
@@ -139,7 +145,18 @@ export const signin = async (req, res) => {
   }
 };
 
-const resetPassword = async (req, res) => {
+export const verifyEmail = async (req, res) => {
+  jwt.verify(req.params.email, "newemail", async (err, decoded) => {
+    if (err) {
+      return res.status(401).json("invalid token");
+    }
+    console.log(decoded);
+    await User.findOneAndUpdate({ email: decoded }, { isConfirmed: true });
+    res.status(200).json("email verified");
+  });
+};
+
+export const resetPassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
 
