@@ -1,7 +1,5 @@
 import mongoose from 'mongoose';
 
-// import { v4 as uuidv4 } from 'uuid';
-
 const OrderSchema = new mongoose.Schema(
     {
         user: {
@@ -66,6 +64,7 @@ const OrderSchema = new mongoose.Schema(
         orderNumber: {
             type: String,
             unique: true,
+            sparse: true,
         },
         isPaid: {
             type: Boolean,

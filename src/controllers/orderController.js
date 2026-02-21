@@ -1,4 +1,6 @@
-import Order from "../models/Order.js ";
+
+import Order from '../models/Order.js ';
+
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -7,29 +9,31 @@ export const createOrder = async (req, res) => {
   try {
     const { items, shippingAddress, paymentMethod } = req.body;
 
-    const totalAmount = items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0,
-    );
 
+    // Calculate total amount
+    const totalAmount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    // Create order
     const order = await Order.create({
       user: req.user.id,
+      orderNumber: `ORD-${Date.now()}`,
+
       items,
       totalAmount,
       shippingAddress,
       paymentMethod,
-      orderStatus: "pending",
-      paymentStatus: "pending",
+      orderStatus: 'pending',
+      paymentStatus: 'pending'
     });
 
     res.status(201).json({
       success: true,
-      data: order,
+      data: order
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message
     });
   }
 };
