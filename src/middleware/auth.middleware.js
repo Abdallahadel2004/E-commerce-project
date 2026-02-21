@@ -1,6 +1,9 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
 
+import dotenv from 'dotenv';
+dotenv.config();
+
 export const auth = async (req, res, next) => {
     try {
         let token;
@@ -19,6 +22,8 @@ export const auth = async (req, res, next) => {
                 message: 'Please Signin',
             });
         }
+
+        // console.log('lll: ' + process.env.JWT_SECRET);
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
@@ -39,6 +44,7 @@ export const auth = async (req, res, next) => {
         return res.status(401).json({
             success: false,
             message: 'Not authorized, Please Sing in',
+            error: error.message,
         });
     }
 };
@@ -78,4 +84,24 @@ export const authorize = (Model) => {
                 .json({ message: 'Server Error', error: error.message });
         }
     };
+};
+
+export const adminOnly = (req, res, next) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Admin only access' });
+        }
+
+        next();
+    } catch (error) {
+        return res.status(500).json({
+            timestamp: new Date(),
+            message: 'Server Error',
+            error: error.message,
+        });
+    }
 };

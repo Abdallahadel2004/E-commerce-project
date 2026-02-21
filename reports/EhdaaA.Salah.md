@@ -1,0 +1,21 @@
+- make architecture for our project at push it at development branch 
+- write readme file for our project 
+- genrate api_endpoints  will find it at report dir 
+- make product Feature  ( at git product branch )
+  - product model 
+  - product controller 
+  - product routes 
+- make Categery   ( at git categery branch )
+ -  categery model 
+ - categery controller  it Contain ( 
+    -  getCategories, getCategory by id , createCategory, updateCategory, deleteCategory)
+ - categery routes 
+- make order Feature   ( at git Order branch )
+ - order model 
+ - order contoreller  it contain ( createOrder,getMyOrders, getOrder, updateOrderStatus,   cancelOrder,getAllOrders,  updatePaymentStatus,)
+ - order routes 
+ - make branch to edit some conflict  in project like imports and. redundant code 
+
+ - make wishlist( model - controller - routes)
+ - make review (model , controller , routes )
+
