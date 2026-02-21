@@ -189,3 +189,61 @@ Example success:
     "updatedAt": "2026-02-18T00:00:00.000Z"
   }
 }
+
+
+============================ admin-> category ========================
+http://localhost:3000/category  [post]
+
+{
+    name: "Electronics",
+    slug: "electronics",
+    description: "All electronic items including phones, laptops, and accessories",
+    isActive: true,
+},
+
+============================ admin-> product ========================
+http://localhost:3000/product [post]
+
+{
+    "name": "iPhone 15 Pro",
+    "description": "Apple iPhone 15 Pro with A17 Pro chip, titanium design, and advanced camera system",
+    "shortDescription": "Latest Apple flagship phone",
+    "price": 999.99,
+    "compareAtPrice": 1099.99,
+    "category": "65f4a3b2c1e9d8a7b6c5d4e3",
+    "sku": "IPHONE-15-PRO-001",
+    "inventory": 50,
+    "attributes": {
+      "brand": "Apple",
+      "color": "Natural Titanium",
+      "storage": "256GB",
+      "ram": "8GB"
+    }
+  }
+
+
+
+
+======================== any authenticated one-> order===================
+//http://localhost:3000/orders [post]
+
+{
+  "items": [
+    {
+      "product": "6998bd40076dbb75cac8ead1",
+      "quantity": 2
+    }
+  ],
+  "shippingAddress": {
+    "address": "123 Main Street",
+    "city": "Cairo",
+    "postalCode": "12345",
+    "country": "Egypt"
+  },
+  "paymentMethod": "card"
+}
+
+============================= payment checkout ================
+http://localhost:3000/payment/checkout/create/:orderId [post]
+
+if success=> redirect me to success endpoint
