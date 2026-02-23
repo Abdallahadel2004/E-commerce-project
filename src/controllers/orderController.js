@@ -1,8 +1,5 @@
-import Order from '../models/order.model.js ';
+import Order from '../models/Order.js';
 
-// @desc    Create new order
-// @route   POST /api/orders
-// @access  Private
 export const createOrder = async (req, res) => {
     try {
         const { items, shippingAddress, paymentMethod } = req.body;
@@ -14,6 +11,7 @@ export const createOrder = async (req, res) => {
 
         const order = await Order.create({
             user: req.user.id,
+            orderNumber: `ORD-${Date.now()}`,
             items,
             totalAmount,
             shippingAddress,
@@ -34,9 +32,6 @@ export const createOrder = async (req, res) => {
     }
 };
 
-// @desc    Get user orders
-// @route   GET /api/orders/my-orders
-// @access  Private
 export const getMyOrders = async (req, res) => {
     try {
         const orders = await Order.find({ user: req.user.id }).sort(
@@ -48,9 +43,6 @@ export const getMyOrders = async (req, res) => {
     }
 };
 
-// @desc    Get single order
-// @route   GET /api/orders/:id
-// @access  Private
 export const getOrder = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
@@ -74,9 +66,6 @@ export const getOrder = async (req, res) => {
     }
 };
 
-// @desc    Cancel order
-// @route   PUT /api/orders/:id/cancel
-// @access  Private
 export const cancelOrder = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
@@ -96,6 +85,13 @@ export const cancelOrder = async (req, res) => {
         }
 
         if (order.orderStatus !== 'pending') {
+            if (order.orderStatus === 'cancelled') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Order is Already Cancelled',
+                });
+            }
+
             return res.status(400).json({
                 success: false,
                 message: 'Order cannot be cancelled at this stage',
@@ -111,9 +107,6 @@ export const cancelOrder = async (req, res) => {
     }
 };
 
-// @desc    Get all orders (Admin only)
-// @route   GET /api/orders
-// @access  Private/Admin
 export const getAllOrders = async (req, res) => {
     try {
         const orders = await Order.find()
@@ -125,9 +118,6 @@ export const getAllOrders = async (req, res) => {
     }
 };
 
-// @desc    Update order status (Admin only)
-// @route   PUT /api/orders/:id/status
-// @access  Private/Admin
 export const updateOrderStatus = async (req, res) => {
     try {
         const { status } = req.body;

@@ -1,6 +1,7 @@
 import stripe from '../utils/paymentService.js';
 import Order from '../models/Order.js';
 import Payment from '../models/payment.model.js';
+import Product from '../models/product.js';
 
 export const createCheckoutSession = async (req, res) => {
     try {
@@ -17,7 +18,7 @@ export const createCheckoutSession = async (req, res) => {
                 price_data: {
                     currency: 'egp',
                     product_data: { name: item.name },
-                    unit_amount: item.price * 100,
+                    unit_amount: Math.round(item.price * 100),
                 },
                 quantity: item.quantity,
             })),
@@ -26,7 +27,7 @@ export const createCheckoutSession = async (req, res) => {
             cancel_url: 'http://localhost:3000/payment/cancel',
             metadata: { orderId: order._id.toString() },
         });
-        console.log('stripeSessionId:' + session.id);
+        // console.log('stripeSessionId:' + session.id);
         await Payment.create({
             order_id: order._id,
             user_id: order.user,
@@ -43,32 +44,60 @@ export const createCheckoutSession = async (req, res) => {
 };
 
 export const success = async (req, res) => {
+    // console.log(1);
     const { session_id } = req.query;
     if (!session_id) return res.status(400).send('No session ID');
+    // console.log(2);
+    let order;
 
     try {
+        // console.log(3);
+
         const session = await stripe.checkout.sessions.retrieve(session_id);
 
         const payment = await Payment.findOne({ stripeSessionId: session.id });
+        // console.log(payment);
         if (!payment) return res.send('<h1>Payment not found</h1>');
-        let order;
+
+        // console.log(4);
+        order = await Order.findById(payment.order_id);
 
         if (payment.status === 'pending' && session.payment_status === 'paid') {
             payment.status = 'completed';
-            await payment.save();
+            console.log(5);
 
-            order = await Order.findById(payment.order_id);
+            await payment.save();
+            // console.log(6);
+
+            // console.log(payment.order_id);
+
+            // console.log(order);
             order.paymentStatus = 'paid';
             order.orderStatus = 'processing';
             order.isPaid = true;
             await order.save();
+
+            for (const item of order.items) {
+                await Product.updateOne(
+                    { _id: item.product },
+                    {
+                        $inc: {
+                            'inventory.quantity': -item.quantity,
+                            soldCount: item.quantity,
+                        },
+                    }
+                );
+            }
         }
+
+        // console.log(5);
+        // console.log(order);
 
         res.send(`
             <h1>Payment Successful</h1>
             <p>Order #${order.orderNumber} has been confirmed.</p>
             <p>Payment status: ${payment.status}</p>
-            <a href="/shop">Back to shop</a>
+            <a href="/">Back to home</a>
         `);
     } catch (err) {
         res.status(500).send(err.message);

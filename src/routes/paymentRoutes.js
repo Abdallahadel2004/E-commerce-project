@@ -3,16 +3,14 @@ import {
     createCheckoutSession,
     success,
 } from '../controllers/paymentController.js';
+import { auth } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-router.use(auth);
-router.post('/checkout/create/:orderId', createCheckoutSession);
+// Requires auth — user must be logged in to create a payment session
+router.post('/checkout/create/:orderId', auth, createCheckoutSession);
 
+// No auth — Stripe redirects the browser here after payment
 router.get('/success', success);
-
-// import bodyParser from 'body-parser';
-import { auth } from '../middleware/auth.middleware.js';
-// router.post('/webhook', bodyParser.raw({ type: 'application/json' }), webhook);
 
 export default router;

@@ -19,4 +19,5 @@
  - make wishlist( model - controller - routes)
  - make review (model , controller , routes )
  - make promo code (model , controller , routes )
+ - make profile ( model , contorller , routes ) and link it with user and wishlist 
 

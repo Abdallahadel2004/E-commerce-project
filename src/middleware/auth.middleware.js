@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 export const auth = async (req, res, next) => {
+    // console.log("Headers:", req.headers);
     try {
         let token;
 

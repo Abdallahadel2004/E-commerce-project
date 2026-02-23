@@ -62,7 +62,7 @@ const productSchema = new mongoose.Schema(
             trim: true,
         },
         inventory: {
-            quantity: { type: Number, required: true, min: 0, default: 0 },
+            quantity: { type: Number, default: 0 },
             lowStockThreshold: { type: Number, default: 5 },
             trackInventory: { type: Boolean, default: true },
         },
@@ -85,7 +85,11 @@ const productSchema = new mongoose.Schema(
             title: String,
             description: String,
             keywords: [String],
-            slug: { type: String, unique: true, lowercase: true },
+            slug: {
+                type: String,
+                lowercase: true,
+                trim: true,
+            },
         },
         ratings: {
             average: {
