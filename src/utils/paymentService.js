@@ -3,6 +3,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // console.log(process.env.STRIPE_KEY);
-const stripe = Stripe(process.env.STRIPE_KEY);
+const stripe = Stripe(process.env.STRIPE_KEY || 'sk_test_dummyStripeKeyToPreventCrash');
 
 export default stripe;

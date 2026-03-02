@@ -45,13 +45,4 @@ app.use("/payment", paymentRoutes);
 app.use("/api/promos", promoRoutes);
 app.use("/api/profile", profileRoutes);
 
-const startServer = async () => {
-  await connectDB();
-  app.listen(PORT, () => {
-    console.log(
-      "Server is running on port 3000, click here: http://localhost:" + PORT,
-    );
-  });
-};
-
-startServer();
+export default app;
