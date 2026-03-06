@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Product from '../models/product.js';
 import Category from '../models/category.js';
 
@@ -53,6 +54,13 @@ export const getProducts = async (req, res) => {
 // GET single product by ID
 export const getProduct = async (req, res) => {
     try {
+        // Validate that the ID is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res
+                .status(404)
+                .json({ success: false, message: 'Product not found' });
+        }
+
         const product = await Product.findById(req.params.id)
             .populate('category', 'name')
             .populate('createdBy', 'name email');
@@ -63,11 +71,18 @@ export const getProduct = async (req, res) => {
                 .json({ success: false, message: 'Product not found' });
         }
 
+        // Increment views without triggering full validation
+        await Product.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } });
         product.views += 1;
-        await product.save();
 
         res.json({ success: true, product });
     } catch (error) {
+        // Handle any remaining CastError as a 404
+        if (error.name === 'CastError') {
+            return res
+                .status(404)
+                .json({ success: false, message: 'Product not found' });
+        }
         res.status(500).json({ success: false, message: error.message });
     }
 };
