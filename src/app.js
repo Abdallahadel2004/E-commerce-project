@@ -16,6 +16,7 @@ import userRoutes from "./routes/userRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js"; // ← NEW
 
 export const app = express();
+export default app;
 
 app.use(
   cors({
