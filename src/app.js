@@ -94,4 +94,7 @@ const startServer = async () => {
   });
 };
 
-startServer();
+// Only start the server when running locally (not on Vercel serverless)
+if (!process.env.VERCEL) {
+  startServer();
+}

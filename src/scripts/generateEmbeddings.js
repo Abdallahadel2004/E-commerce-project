@@ -21,7 +21,7 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const run = async () => {
   // ── Connect to MongoDB ────────────────────────────────────────────────────
-  await mongoose.connect(process.env.MONGO_URI);
+  await mongoose.connect(process.env.MONGODB_URI);
   console.log("✅ Connected to MongoDB");
 
   // Find all active products that don't have embeddings yet

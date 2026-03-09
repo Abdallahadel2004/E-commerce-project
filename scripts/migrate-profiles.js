@@ -12,7 +12,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Debug: Check if env loaded
 console.log(' Current directory:', process.cwd());
-console.log(' MONGODB_URI:', process.env.MONGO_URI ? 'Found' : ' Not found');
+console.log(' MONGODB_URI:', process.env.MONGODB_URI ? 'Found' : ' Not found');
 
 import User from '../src/models/user.model.js';
 import Profile from '../src/models/Profile.js';
@@ -20,12 +20,12 @@ import Profile from '../src/models/Profile.js';
 async function migrateProfiles() {
   try {
     // Check if URI exists
-    if (!process.env.MONGO_URI) {
-      throw new Error('MONGO_URI is not defined in .env file');
+    if (!process.env.MONGODB_URI) {
+      throw new Error('MONGODB_URI is not defined in .env file');
     }
 
     console.log('Connecting to MongoDB...');
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log(' Database connected');
 
     const users = await User.find();
