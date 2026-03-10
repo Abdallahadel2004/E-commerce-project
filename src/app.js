@@ -14,7 +14,10 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js"; // ← NEW
-
+import searchRoutes from "./routes/searchRoutes.js";
+import compareRoutes from "./routes/compareRoutes.js";
+import visualSearchRouter from "./routes/visualSearch.js";
+import setupBuilderRoutes from "./routes/setupBuilderRoutes.js";
 export const app = express();
 export default app;
 
@@ -71,6 +74,10 @@ app.use("/payment", paymentRoutes);
 app.use("/api/promos", promoRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/chat", chatRoutes); // ← NEW
+app.use("/api/search", searchRoutes);
+app.use("/api/compare", compareRoutes);
+app.use("/api/visual-search", visualSearchRouter);
+app.use("/api/ai/setup-builder", setupBuilderRoutes);
 
 const startServer = async () => {
   await connectDB();

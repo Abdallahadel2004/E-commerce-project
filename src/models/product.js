@@ -125,15 +125,29 @@ const productSchema = new mongoose.Schema(
       shippingRate: Number,
     },
 
-    // ─── AI / Vector Search ───────────────────────────────────────────────
-    // 384-dimensional vector from sentence-transformers/all-MiniLM-L6-v2
-    // This field is indexed by MongoDB Atlas Vector Search (not Mongoose).
-    // Run scripts/generateEmbeddings.js once to populate existing products.
-    // New products get their embedding auto-generated via the post-save hook below.
+    // ─── TEXT Embedding (chat / semantic search) ──────────────────────────
+    // 384-dimensional vector — sentence-transformers/all-MiniLM-L6-v2
+    // Atlas index : product_vector_index  (numDimensions: 384, cosine)
+    // Populated by: scripts/generateEmbeddings.js  +  post-save hook
     embedding: {
       type: [Number],
       default: undefined,
       select: false, // never returned in normal API responses
+    },
+
+    // ─── IMAGE Embedding (visual product search) ──────────────────────────
+    // 512-dimensional vector — openai/clip-vit-base-patch32
+    // Atlas index : product_image_vector_index  (numDimensions: 512, cosine)
+    // Populated by: scripts/generateImageEmbeddings.js
+    //               POST /api/visual-search/embed/:productId
+    imageEmbedding: {
+      type: [Number],
+      default: undefined,
+      select: false, // never returned in normal API responses
+    },
+    imageEmbeddingGeneratedAt: {
+      type: Date,
+      default: null,
     },
   },
   {
@@ -142,6 +156,20 @@ const productSchema = new mongoose.Schema(
     toObject: { virtuals: true },
   },
 );
+
+// ─── Static helpers used by embedding scripts ─────────────────────────────
+
+/** Products missing image embeddings — used by generateImageEmbeddings.js */
+productSchema.statics.findWithoutImageEmbedding = function () {
+  return this.find({
+    $or: [
+      { imageEmbedding: { $exists: false } },
+      { imageEmbedding: { $size: 0 } },
+    ],
+    isActive: { $ne: false },
+    deletedAt: null,
+  }).select("+imageEmbedding name images");
+};
 
 const Product = mongoose.model("Product", productSchema);
 export default Product;
