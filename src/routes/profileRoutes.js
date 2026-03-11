@@ -56,7 +56,7 @@ const upload = multer({
     },
 });
 
-router.use(auth, authorize(Profile));
+router.use(auth);
 
 router.get('/', getMyProfile);
 router.put('/', updateMyProfile);

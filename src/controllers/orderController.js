@@ -77,24 +77,27 @@ export const cancelOrder = async (req, res) => {
             });
         }
 
-        if (order.user.toString() !== req.user.id) {
+        if (
+            order.user.toString() !== req.user.id &&
+            req.user.role !== 'admin'
+        ) {
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized',
             });
         }
 
-        if (order.orderStatus !== 'pending') {
-            if (order.orderStatus === 'cancelled') {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Order is Already Cancelled',
-                });
-            }
-
+        if (order.orderStatus === 'cancelled') {
             return res.status(400).json({
                 success: false,
-                message: 'Order cannot be cancelled at this stage',
+                message: 'Order is already cancelled',
+            });
+        }
+
+        if (order.orderStatus !== 'pending') {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot cancel an order that is already ${order.orderStatus}`,
             });
         }
 
