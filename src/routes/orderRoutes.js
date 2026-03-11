@@ -18,7 +18,8 @@ router.use(auth);
 router.post('/', createOrder);
 router.get('/my-orders', getMyOrders);
 router.get('/:id', authorize(Order), getOrder);
-router.put('/:id/cancel', authorize(Order), cancelOrder);
+
+router.put('/:id/cancel', cancelOrder);
 
 router.get('/', adminOnly, getAllOrders);
 router.put('/:id/status', authorize(Order), updateOrderStatus);
