@@ -26,7 +26,13 @@ app.use(
     origin: function (origin, callback) {
       const allowedOrigins = [
         "http://localhost:4200",
+        "http://localhost:4201",
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:4200",
+        "http://127.0.0.1:3000",
         "https://angular-pro-deploy.vercel.app",
+        "https://back-omega-amber.vercel.app",
         process.env.CLIENT_URL,
       ].filter(Boolean);
 
@@ -41,6 +47,27 @@ app.use(
         return callback(null, true);
       }
 
+      // Allow all Vercel deployments
+      if (/^https:\/\/.*\.vercel\.app$/.test(origin)) {
+        return callback(null, true);
+      }
+
+      // Allow localhost with any port for development
+      if (/^http:\/\/localhost:\d+$/.test(origin)) {
+        return callback(null, true);
+      }
+
+      // Allow 127.0.0.1 with any port for development
+      if (/^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) {
+        return callback(null, true);
+      }
+
+      // Allow local network IPs with any port for development (e.g., 192.168.x.x, 10.x.x.x)
+      if (/^http:\/\/(192\.168|10|172\.(1[6-9]|2[0-9]|3[01]))\.\d+\.\d+:\d+$/.test(origin)) {
+        return callback(null, true);
+      }
+
+      console.log(`CORS blocked origin: ${origin}`);
       callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
