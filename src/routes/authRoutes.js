@@ -5,9 +5,8 @@ import {
     signin,
     verifyEmail,
     forgotPassword,
-    resetPasswordViaToken,
-    resetPassword,
     resetPasswordByToken,
+    resetPassword,
 } from '../controllers/authController.js';
 
 const router = express.Router();
@@ -20,7 +19,7 @@ router.get('/verify-email/:token', verifyEmail);
 router.post('/forgot-password', forgotPassword);
 
 // Reset password via token from email link (no auth required)
-router.post('/reset-password/:id/:token', resetPasswordViaToken);
+router.post('/reset-password/:id/:token', resetPasswordByToken);
 
 // Reset password for logged-in user (requires auth)
 router.put('/reset-password', auth, resetPassword);

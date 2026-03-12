@@ -2,6 +2,7 @@
 // AI-powered smart search using vector embeddings + hybrid fallback
 
 import Product from "../models/product.js";
+import Category from "../models/category.js";
 import { generateEmbedding } from "../services/embeddingService.js";
 
 const STOP_WORDS =
@@ -11,112 +12,158 @@ export const smartSearch = async (req, res) => {
   try {
     const { q, category, minPrice, maxPrice, page = 1, limit = 12 } = req.query;
 
-    if (!q || q.trim().length === 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Search query is required." });
-    }
+    const hasQuery = q && q.trim().length > 0;
+    const hasCategory = category && category !== "All Category";
 
-    const query = q.trim();
+    const query = hasQuery ? q.trim() : "";
     const skip = (page - 1) * limit;
 
-    // ── Base MongoDB filter ───────────────────────────────────────────────────
+    // ── Resolve category name → ObjectId for .find() queries ──────────────
+    let categoryId = null;
+    if (hasCategory) {
+      const cat = await Category.findOne({ name: category });
+      if (cat) categoryId = cat._id;
+    }
+
+    // ── Base MongoDB filter (for .find() — uses ObjectId) ─────────────────
     const baseFilter = { isActive: { $ne: false }, deletedAt: null };
-    if (category && category !== "All Category")
-      baseFilter["category.name"] = category;
+    if (categoryId) baseFilter.category = categoryId;
     if (minPrice)
       baseFilter.price = { ...baseFilter.price, $gte: parseFloat(minPrice) };
     if (maxPrice)
       baseFilter.price = { ...baseFilter.price, $lte: parseFloat(maxPrice) };
 
-    // ── Step 1: Embed query ───────────────────────────────────────────────────
     let products = [];
     let searchMethod = "keyword";
 
-    try {
-      const embedding = await generateEmbedding(query);
+    // ── Category-only browse (no search query) ────────────────────────────
+    if (!hasQuery) {
+      products = await Product.find(baseFilter)
+        .populate("category", "name")
+        .select(
+          "name price compareAtPrice shortDescription description images inventory ratings isFeatured soldCount category",
+        )
+        .sort({ "ratings.average": -1 });
 
-      // ── Step 2: Vector search ───────────────────────────────────────────────
-      const vectorResults = await Product.aggregate([
-        {
-          $vectorSearch: {
-            index: "product_vector_index",
-            path: "embedding",
-            queryVector: embedding,
-            numCandidates: 400,
-            limit: 50,
-          },
-        },
-        {
-          $project: {
-            name: 1,
-            price: 1,
-            compareAtPrice: 1,
-            shortDescription: 1,
-            description: 1,
-            category: 1,
-            images: { $slice: ["$images", 1] },
-            inventory: 1,
-            ratings: 1,
-            isActive: 1,
-            deletedAt: 1,
-            isFeatured: 1,
-            soldCount: 1,
-            score: { $meta: "vectorSearchScore" },
-          },
-        },
-        {
-          $match: {
-            score: { $gte: 0.45 }, // lower threshold for search (more inclusive)
-            isActive: { $ne: false },
-            deletedAt: null,
-            ...(category && category !== "All Category"
-              ? { "category.name": category }
-              : {}),
-            ...(minPrice || maxPrice
-              ? {
-                  price: {
-                    ...(minPrice ? { $gte: parseFloat(minPrice) } : {}),
-                    ...(maxPrice ? { $lte: parseFloat(maxPrice) } : {}),
-                  },
-                }
-              : {}),
-          },
-        },
-      ]);
+      searchMethod = "keyword";
+    } else {
+      // ── Step 1: Embed query ─────────────────────────────────────────────
+      try {
+        const embedding = await generateEmbedding(query);
 
-      console.log(
-        `🔍 Smart search "${query}": ${vectorResults.length} vector results`,
-      );
-      if (vectorResults.length > 0) {
+        // ── Step 2: Vector search (uses raw docs — filter by ObjectId) ────
+        const vectorResults = await Product.aggregate([
+          {
+            $vectorSearch: {
+              index: "product_vector_index",
+              path: "embedding",
+              queryVector: embedding,
+              numCandidates: 400,
+              limit: 50,
+            },
+          },
+          {
+            $project: {
+              name: 1,
+              price: 1,
+              compareAtPrice: 1,
+              shortDescription: 1,
+              description: 1,
+              category: 1,
+              images: { $slice: ["$images", 1] },
+              inventory: 1,
+              ratings: 1,
+              isActive: 1,
+              deletedAt: 1,
+              isFeatured: 1,
+              soldCount: 1,
+              score: { $meta: "vectorSearchScore" },
+            },
+          },
+          {
+            $match: {
+              score: { $gte: 0.45 },
+              isActive: { $ne: false },
+              deletedAt: null,
+              ...(categoryId ? { category: categoryId } : {}),
+              ...(minPrice || maxPrice
+                ? {
+                    price: {
+                      ...(minPrice ? { $gte: parseFloat(minPrice) } : {}),
+                      ...(maxPrice ? { $lte: parseFloat(maxPrice) } : {}),
+                    },
+                  }
+                : {}),
+            },
+          },
+        ]);
+
         console.log(
-          "Scores:",
-          vectorResults
-            .slice(0, 5)
-            .map((p) => `${p.name}: ${p.score?.toFixed(3)}`),
+          `Smart search "${query}": ${vectorResults.length} vector results`,
         );
-      }
+        if (vectorResults.length > 0) {
+          console.log(
+            "Scores:",
+            vectorResults
+              .slice(0, 5)
+              .map((p) => `${p.name}: ${p.score?.toFixed(3)}`),
+          );
+        }
 
-      if (vectorResults.length >= 2) {
-        products = vectorResults;
-        searchMethod = "vector";
-      } else {
-        // ── Step 3: Hybrid — merge vector + keyword ─────────────────────────
-        const vectorIds = new Set(vectorResults.map((p) => p._id.toString()));
+        if (vectorResults.length >= 2) {
+          products = vectorResults;
+          searchMethod = "vector";
+        } else {
+          // ── Step 3: Hybrid — merge vector + keyword ───────────────────
+          const vectorIds = new Set(vectorResults.map((p) => p._id.toString()));
+          const keywords = query
+            .replace(STOP_WORDS, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+          const regex = new RegExp(
+            keywords
+              .split(" ")
+              .filter((w) => w.length > 1)
+              .map((w) => `(?=.*${w})`)
+              .join(""),
+            "i",
+          );
+
+          const keywordResults = await Product.find({
+            $or: [
+              { name: regex },
+              { description: regex },
+              { shortDescription: regex },
+            ],
+            ...baseFilter,
+          })
+            .populate("category", "name")
+            .select(
+              "name price compareAtPrice shortDescription description images inventory ratings isFeatured soldCount category",
+            )
+            .sort({ "ratings.average": -1 })
+            .limit(20);
+
+          const keywordNew = keywordResults
+            .filter((p) => !vectorIds.has(p._id.toString()))
+            .map((p) => ({ ...p.toObject(), score: 0 }));
+
+          products = [...vectorResults, ...keywordNew];
+          searchMethod = "hybrid";
+          console.log(
+            `Hybrid: ${vectorResults.length} vector + ${keywordNew.length} keyword`,
+          );
+        }
+      } catch (embErr) {
+        // ── Pure keyword fallback if embedding fails ────────────────────
+        console.error("Embedding failed, using keyword search:", embErr.message);
         const keywords = query
           .replace(STOP_WORDS, " ")
           .replace(/\s+/g, " ")
           .trim();
-        const regex = new RegExp(
-          keywords
-            .split(" ")
-            .filter((w) => w.length > 1)
-            .map((w) => `(?=.*${w})`)
-            .join(""),
-          "i",
-        );
+        const regex = new RegExp(keywords, "i");
 
-        const keywordResults = await Product.find({
+        products = await Product.find({
           $or: [
             { name: regex },
             { description: regex },
@@ -126,45 +173,12 @@ export const smartSearch = async (req, res) => {
         })
           .populate("category", "name")
           .select(
-            "name price compareAtPrice shortDescription description images inventory ratings isFeatured soldCount category",
+            "name price compareAtPrice shortDescription description images inventory ratings isFeatured soldCount",
           )
-          .sort({ "ratings.average": -1 })
-          .limit(20);
+          .sort({ "ratings.average": -1 });
 
-        const keywordNew = keywordResults
-          .filter((p) => !vectorIds.has(p._id.toString()))
-          .map((p) => ({ ...p.toObject(), score: 0 }));
-
-        products = [...vectorResults, ...keywordNew];
-        searchMethod = "hybrid";
-        console.log(
-          `🔀 Hybrid: ${vectorResults.length} vector + ${keywordNew.length} keyword`,
-        );
+        searchMethod = "keyword";
       }
-    } catch (embErr) {
-      // ── Pure keyword fallback if embedding fails ──────────────────────────
-      console.error("Embedding failed, using keyword search:", embErr.message);
-      const keywords = query
-        .replace(STOP_WORDS, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      const regex = new RegExp(keywords, "i");
-
-      products = await Product.find({
-        $or: [
-          { name: regex },
-          { description: regex },
-          { shortDescription: regex },
-        ],
-        ...baseFilter,
-      })
-        .populate("category", "name")
-        .select(
-          "name price compareAtPrice shortDescription description images inventory ratings isFeatured soldCount",
-        )
-        .sort({ "ratings.average": -1 });
-
-      searchMethod = "keyword";
     }
 
     // ── Pagination ────────────────────────────────────────────────────────────
