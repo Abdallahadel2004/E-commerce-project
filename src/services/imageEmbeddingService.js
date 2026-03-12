@@ -1,5 +1,6 @@
 // services/imageEmbeddingService.js
-// Pipeline: Groq Vision → product description → sentence-transformer embedding
+// Image → Groq Vision (description) → HuggingFace embedding (384-dim)
+// Reuses the same embeddingService used for product text embeddings.
 
 import crypto from "crypto";
 import NodeCache from "node-cache";
@@ -7,35 +8,24 @@ import Groq from "groq-sdk";
 import { generateEmbedding } from "./embeddingService.js";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const cache = new NodeCache({ stdTTL: 3600, maxKeys: 500 });
 
-export const IMAGE_EMBEDDING_DIM = 384;
+const VISION_PROMPT = `You are an expert e-commerce tagging assistant.
+Analyze the product in the image and generate terms a user would actually search for.
 
-const cache = new NodeCache({ stdTTL: 3600, checkperiod: 600, maxKeys: 1000 });
-
-// ─── Groq Vision → product description ───────────────────────────────────────
-
-const VISION_PROMPT = `You are a visual product search engine for an e-commerce platform.
-
-Analyze the uploaded image and identify ONLY the main product (ignore background, people, props, and scenery).
-
-Return a structured description using EXACTLY this format:
-CATEGORY: [single product category, e.g. "laptop", "running shoes", "gaming headset"]
-TYPE: [specific product type, e.g. "ultrabook", "trail running shoe", "over-ear headphones"]
-COLOR: [primary color(s)]
-MATERIAL: [visible material, e.g. "aluminum", "mesh fabric", "leather"]
-DESIGN: [key design descriptors, e.g. "slim profile", "chunky sole", "closed-back"]
-STYLE: [style tags, e.g. "professional", "sporty", "minimalist"]
-KEYWORDS: [5-8 comma-separated search keywords that precisely describe this product for matching similar items]
+Return EXACTLY this format:
+CATEGORY: [e.g., "Electronics", "Footwear"]
+TYPE: [e.g., "Digital Camera", "Running Shoes"]
+SIMPLE_DESCRIPTION: [5-word description, e.g., "Black DSLR professional digital camera"]
+SEARCH_KEYWORDS: [8-10 synonyms, e.g., "camera, dslr, photography, lens, canon, nikon, digital"]
 
 Rules:
-- Focus ONLY on the main product, not accessories or background items
-- Be as specific as possible about product type and category
-- Keywords must reflect the exact product type — never use generic words like "item" or "product"
-- Do NOT describe the background, lighting, or setting`;
+- NO technical jargon like "ribbed", "bezel", "shimmering"
+- Focus on the core identity of the product
+- Include common brand names that match the visual`;
 
-const describeImageWithGroq = async (imageBuffer, mimeType = "image/jpeg") => {
-  const base64 = imageBuffer.toString("base64");
-  const dataUrl = `data:${mimeType};base64,${base64}`;
+const describeImage = async (imageBuffer, mimeType = "image/jpeg") => {
+  const dataUrl = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
 
   const response = await groq.chat.completions.create({
     model: "meta-llama/llama-4-scout-17b-16e-instruct",
@@ -49,93 +39,62 @@ const describeImageWithGroq = async (imageBuffer, mimeType = "image/jpeg") => {
       },
     ],
     max_tokens: 250,
-    temperature: 0.1, // lower = more deterministic, less creative drift
+    temperature: 0.1,
   });
 
   const raw = response.choices[0]?.message?.content?.trim();
-  if (!raw) throw new Error("Groq returned empty description");
+  if (!raw) throw new Error("Groq returned empty response");
 
-  // Extract the KEYWORDS line for the embedding — most signal-dense part
-  const keywordsMatch = raw.match(/KEYWORDS:\s*(.+)/i);
-  const categoryMatch = raw.match(/CATEGORY:\s*(.+)/i);
-  const typeMatch = raw.match(/TYPE:\s*(.+)/i);
-  const designMatch = raw.match(/DESIGN:\s*(.+)/i);
+  const category = raw.match(/CATEGORY:\s*(.+)/i)?.[1]?.trim() ?? "";
+  const type = raw.match(/TYPE:\s*(.+)/i)?.[1]?.trim() ?? "";
+  const simple = raw.match(/SIMPLE_DESCRIPTION:\s*(.+)/i)?.[1]?.trim() ?? "";
+  const keywords = raw.match(/SEARCH_KEYWORDS:\s*(.+)/i)?.[1]?.trim() ?? "";
 
-  // Build a focused query string: category + type + keywords (ignore color/style noise)
-  const focusedQuery = [
-    categoryMatch?.[1]?.trim(),
-    typeMatch?.[1]?.trim(),
-    designMatch?.[1]?.trim(),
-    keywordsMatch?.[1]?.trim(),
-  ]
+  // Single category+type mention — keeps the embedding focused on identity
+  // rather than artificially amplifying it via repetition
+  const query = [`${category} ${type}`, simple, keywords]
     .filter(Boolean)
     .join(". ");
 
-  const description = focusedQuery || raw; // fallback to full text if parsing fails
+  console.log(`[ImageEmbedding] Groq:\n${raw}`);
+  console.log(`[ImageEmbedding] Query: "${query}"`);
 
-  console.log(`[ImageEmbedding] Raw Groq output:\n${raw}`);
-  console.log(`[ImageEmbedding] Focused query: "${description}"`);
-  return description;
+  // `type` is the most specific Groq signal (e.g. "Digital Camera") —
+  // returned separately so the keyword fallback can search on it strictly
+  // before broadening to the full keyword list.
+  return { query, type, keywords };
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const bufferHash = (buf) =>
-  crypto.createHash("sha256").update(buf).digest("hex");
-
-// ─── Public API ───────────────────────────────────────────────────────────────
-
-export const generateImageEmbedding = async (
+/**
+ * Converts an uploaded image buffer into a 384-dim embedding plus the
+ * raw keyword string extracted by Groq — so the caller can use keywords
+ * as a hybrid-search fallback when vector scores are low.
+ *
+ * @param {Buffer} imageBuffer
+ * @param {string} mimeType
+ * @returns {Promise<{ embedding: number[], type: string, keywords: string }>}
+ */
+export const imageToEmbedding = async (
   imageBuffer,
   mimeType = "image/jpeg",
 ) => {
-  const key = bufferHash(imageBuffer);
+  const cacheKey = crypto
+    .createHash("sha256")
+    .update(imageBuffer)
+    .digest("hex");
 
-  const cached = cache.get(key);
+  const cached = cache.get(cacheKey);
   if (cached) {
     console.log("[ImageEmbedding] Cache HIT");
     return cached;
   }
 
-  const description = await describeImageWithGroq(imageBuffer, mimeType);
-  const embedding = await generateEmbedding(description);
+  const { query, type, keywords } = await describeImage(imageBuffer, mimeType);
+  const embedding = await generateEmbedding(query);
 
-  if (embedding.length !== IMAGE_EMBEDDING_DIM)
-    throw new Error(
-      `Expected ${IMAGE_EMBEDDING_DIM}-dim, got ${embedding.length}`,
-    );
-
-  cache.set(key, embedding);
-  return embedding;
-};
-
-export const generateImageEmbeddingFromUrl = async (imageUrl) => {
-  const url = fixImageUrl(imageUrl);
-  const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
-  if (!res.ok) throw new Error(`Image download failed: ${res.status} ${url}`);
-
-  const buffer = Buffer.from(await res.arrayBuffer());
-  const mime = url.match(/\.png(\?|$)/i)
-    ? "image/png"
-    : url.match(/\.webp(\?|$)/i)
-      ? "image/webp"
-      : "image/jpeg";
-
-  return generateImageEmbedding(buffer, mime);
-};
-
-export const fixImageUrl = (url) => {
-  if (!url) return url;
-  try {
-    const p = new URL(url);
-    if (p.hostname.includes("unsplash.com") && !p.search) {
-      p.searchParams.set("w", "600");
-      return p.toString();
-    }
-  } catch {
-    /* not a valid URL */
-  }
-  return url;
+  const result = { embedding, type, keywords };
+  cache.set(cacheKey, result);
+  return result;
 };
 
 export const getEmbeddingCacheStats = () => cache.getStats();

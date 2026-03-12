@@ -1,44 +1,38 @@
 // services/visualSearchService.js
-// ─────────────────────────────────────────────────────────────────────────────
-// Queries MongoDB Atlas using the IMAGE vector index (product_image_vector_index)
-// which is separate from the TEXT index (product_vector_index) used by chatController.
-//
-// Field: imageEmbedding  (512-dim CLIP)
-// Index: product_image_vector_index
-// ─────────────────────────────────────────────────────────────────────────────
+// Vector search using the existing `embedding` field + `product_vector_index`.
+// Same field and index as the chatbot — no extra index or batch script needed.
 
 import Product from "../models/product.js";
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 50;
-const CANDIDATES_MULTIPLIER = 10;
-const DEFAULT_MIN_SCORE = 0.6;
+// Cross-modal image→text embeddings score lower than text→text by nature;
+// 0.25 keeps genuine matches while filtering weak/unrelated results.
+const DEFAULT_MIN_SCORE = 0.25;
+const CANDIDATES_MULT = 15; // wider candidate pool compensates for modality gap
+// Auto-trigger keyword fallback when vector alone returns fewer than this
+const SPARSE_VECTOR_THRESHOLD = 3;
+// Drop merged results whose combined RRF score falls below this — prevents
+// weakly-related keyword-only hits from surfacing in the final list
+const RRF_MIN_SCORE = 0.004;
 
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
-/** Build optional metadata post-filter */
-const buildPostFilter = ({ categories, minPrice, maxPrice } = {}) => {
-  const conditions = [{ isActive: { $ne: false } }, { deletedAt: null }];
-
-  if (categories?.length) {
-    conditions.push({ category: { $in: categories } });
-  }
-
+const buildFilter = ({ categories, minPrice, maxPrice } = {}) => {
+  const must = [{ isActive: { $ne: false } }, { deletedAt: null }];
+  if (categories?.length) must.push({ category: { $in: categories } });
   if (minPrice != null || maxPrice != null) {
     const pf = {};
     if (minPrice != null) pf.$gte = Number(minPrice);
     if (maxPrice != null) pf.$lte = Number(maxPrice);
-    conditions.push({ price: pf });
+    must.push({ price: pf });
   }
-
-  return { $and: conditions };
+  return { $and: must };
 };
 
-/** Shared projection — excludes both embedding fields */
-const PRODUCT_PROJECTION = {
+const PROJECTION = {
   _id: 1,
   name: 1,
-  description: 1,
   shortDescription: 1,
   price: 1,
   compareAtPrice: 1,
@@ -46,135 +40,149 @@ const PRODUCT_PROJECTION = {
   category: 1,
   inventory: 1,
   ratings: 1,
-  isFeatured: 1,
-  createdAt: 1,
   similarityScore: 1,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Pure vector similarity search against imageEmbedding field.
- * Atlas index: product_image_vector_index  (512-dim, cosine)
- *
- * @param {number[]} queryEmbedding  512-dim CLIP query vector
- * @param {object}  options
- */
-export const vectorImageSearch = async (queryEmbedding, options = {}) => {
+// ─── Pure vector search ───────────────────────────────────────────────────────
+export const vectorSearch = async (queryEmbedding, options = {}) => {
   const limit = clamp(options.limit ?? DEFAULT_LIMIT, 1, MAX_LIMIT);
-  const numCandidates = limit * CANDIDATES_MULTIPLIER;
+  const numCandidates = limit * CANDIDATES_MULT;
   const minScore = options.minScore ?? DEFAULT_MIN_SCORE;
 
-  const pipeline = [
+  return Product.aggregate([
     {
       $vectorSearch: {
-        index: "image-vector-index", // ← image index, NOT product_vector_index
-        path: "imageEmbedding", // ← image embedding field
+        index: "product_vector_index",
+        path: "embedding",
         queryVector: queryEmbedding,
         numCandidates,
         limit: limit * 2,
       },
     },
+    { $addFields: { similarityScore: { $meta: "vectorSearchScore" } } },
     {
-      $addFields: {
-        similarityScore: { $meta: "vectorSearchScore" },
-      },
+      $match: { similarityScore: { $gte: minScore }, ...buildFilter(options) },
     },
-    {
-      $match: {
-        similarityScore: { $gte: minScore },
-        ...buildPostFilter(options),
-      },
-    },
-    {
-      $project: PRODUCT_PROJECTION,
-    },
+    { $project: PROJECTION },
     { $sort: { similarityScore: -1 } },
     { $limit: limit },
-  ];
-
-  return Product.aggregate(pipeline);
+  ]);
 };
 
+// ─── Hybrid search (vector + keyword) ────────────────────────────────────────
+
 /**
- * Hybrid visual + keyword search using Reciprocal Rank Fusion.
- * Falls back to pure vector search when no keyword is provided.
+ * Combines vector results with keyword results via Reciprocal Rank Fusion.
+ *
+ * Keyword search is triggered when:
+ *   (a) an explicit keyword is provided by the caller, OR
+ *   (b) vector alone returns fewer than SPARSE_VECTOR_THRESHOLD results
+ *       — in that case imageKeywords (from Groq) is used as the fallback term.
  *
  * @param {number[]} queryEmbedding
- * @param {string}  [keyword]
- * @param {object}  [options]
+ * @param {string|null} keyword        — user-supplied keyword (optional)
+ * @param {object}      options
+ * @param {string}      options.imageType     — Groq TYPE field, e.g. "Digital Camera"
+ * @param {string}      options.imageKeywords — full Groq keyword list, used as
+ *                                              broad fallback only when TYPE yields nothing
  */
 export const hybridVisualSearch = async (
   queryEmbedding,
   keyword,
   options = {},
 ) => {
-  if (!keyword?.trim()) {
-    return vectorImageSearch(queryEmbedding, options);
+  const limit = clamp(options.limit ?? DEFAULT_LIMIT, 1, MAX_LIMIT);
+  const { imageType, imageKeywords, ...searchOptions } = options;
+
+  // Always run vector search first
+  const vectorResults = await vectorSearch(queryEmbedding, {
+    ...searchOptions,
+    limit: limit * 2,
+  });
+
+  console.log(`[VisualSearch] Vector: ${vectorResults.length} results`);
+
+  // Determine which keyword string to use:
+  //  1. Explicit user keyword (most trusted)
+  //  2. Groq TYPE when vector is sparse — strict, single-concept match
+  //  3. Groq full keyword list — broadest fallback, only when TYPE also fails
+  let activeKeyword = keyword?.trim() || null;
+  let fallbackKeywords = null;
+
+  if (!activeKeyword && vectorResults.length < SPARSE_VECTOR_THRESHOLD) {
+    activeKeyword = imageType || null; // strict first pass
+    fallbackKeywords = imageKeywords || null; // broad second pass if needed
   }
 
-  const limit = clamp(options.limit ?? DEFAULT_LIMIT, 1, MAX_LIMIT);
+  if (!activeKeyword) return vectorResults.slice(0, limit);
 
-  const [visualResults, textResults] = await Promise.all([
-    vectorImageSearch(queryEmbedding, { ...options, limit: limit * 2 }),
-    keywordSearch(keyword, options),
-  ]);
+  const source = keyword?.trim()
+    ? "user keyword"
+    : `image type fallback ("${activeKeyword}")`;
+  console.log(`[VisualSearch] Keyword search triggered (${source})`);
 
-  return rrfMerge(visualResults, textResults, limit, 0.7, 0.3);
+  let kwResults = await keywordSearch(activeKeyword, searchOptions);
+  console.log(`[VisualSearch] Keyword (strict): ${kwResults.length} results`);
+
+  // If TYPE matched nothing and we have broad keywords, try those as a second pass
+  if (!kwResults.length && fallbackKeywords) {
+    console.log(
+      `[VisualSearch] Keyword (broad fallback): "${fallbackKeywords}"`,
+    );
+    kwResults = await keywordSearch(fallbackKeywords, searchOptions);
+    console.log(`[VisualSearch] Keyword (broad): ${kwResults.length} results`);
+  }
+
+  if (!kwResults.length) return vectorResults.slice(0, limit);
+
+  return rrfMerge(vectorResults, kwResults, limit);
 };
 
-/**
- * Keyword fallback search for visual search (searches name/description/shortDescription).
- */
-export const keywordSearch = async (keyword, options = {}) => {
+// ─── Keyword fallback ─────────────────────────────────────────────────────────
+const keywordSearch = async (keyword, options = {}) => {
   const limit = clamp(options.limit ?? DEFAULT_LIMIT, 1, MAX_LIMIT);
-  const regex = new RegExp(keyword.replace(/\s+/g, "|"), "i");
+  // OR across every comma/space-separated term from Groq's keyword list
+  const terms = keyword
+    .split(/[\s,]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const regex = new RegExp(terms.join("|"), "i");
 
-  const filter = {
+  return Product.find({
     $or: [{ name: regex }, { shortDescription: regex }, { description: regex }],
     isActive: { $ne: false },
     deletedAt: null,
     ...(options.categories?.length
       ? { category: { $in: options.categories } }
       : {}),
-    ...(options.minPrice != null || options.maxPrice != null
-      ? {
-          price: {
-            ...(options.minPrice != null ? { $gte: options.minPrice } : {}),
-            ...(options.maxPrice != null ? { $lte: options.maxPrice } : {}),
-          },
-        }
-      : {}),
-  };
-
-  return Product.find(filter)
-    .select(
-      "name price shortDescription description images inventory ratings category",
-    )
+    ...(options.minPrice != null ? { price: { $gte: options.minPrice } } : {}),
+    ...(options.maxPrice != null ? { price: { $lte: options.maxPrice } } : {}),
+  })
+    .select("name price shortDescription images inventory ratings category")
     .sort({ "ratings.average": -1 })
     .limit(limit)
     .lean();
 };
 
-/** Reciprocal Rank Fusion — merges two ranked lists */
+// ─── Reciprocal Rank Fusion ───────────────────────────────────────────────────
 const rrfMerge = (listA, listB, limit, weightA = 0.7, weightB = 0.3) => {
   const K = 60;
   const scores = new Map();
   const docs = new Map();
 
-  const addRRF = (list, weight) => {
+  const addList = (list, weight) =>
     list.forEach((doc, rank) => {
       const id = doc._id.toString();
       scores.set(id, (scores.get(id) ?? 0) + weight / (K + rank + 1));
       if (!docs.has(id)) docs.set(id, doc);
     });
-  };
 
-  addRRF(listA, weightA);
-  addRRF(listB, weightB);
+  addList(listA, weightA);
+  addList(listB, weightB);
 
   return [...scores.entries()]
     .sort((a, b) => b[1] - a[1])
+    .filter(([, score]) => score >= RRF_MIN_SCORE)
     .slice(0, limit)
     .map(([id, score]) => ({
       ...docs.get(id),
@@ -182,6 +190,6 @@ const rrfMerge = (listA, listB, limit, weightA = 0.7, weightB = 0.3) => {
     }));
 };
 
-/** Returns distinct product categories (used by filter UI) */
+// ─── Categories for filter UI ─────────────────────────────────────────────────
 export const getProductCategories = () =>
   Product.distinct("category", { isActive: { $ne: false }, deletedAt: null });

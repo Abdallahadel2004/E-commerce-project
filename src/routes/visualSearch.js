@@ -7,8 +7,6 @@ import path from "path";
 import {
   visualSearch,
   listCategories,
-  embedProduct,
-  batchEmbedProducts,
   healthCheck,
 } from "../controllers/visualSearchController.js";
 
@@ -21,12 +19,6 @@ const searchLimiter = rateLimit({
   message: { success: false, error: "Too many search requests. Please wait." },
   standardHeaders: true,
   legacyHeaders: false,
-});
-
-const embedLimiter = rateLimit({
-  windowMs: 60_000,
-  max: 10,
-  message: { success: false, error: "Embedding rate limit reached." },
 });
 
 // ─── Multer — memory storage, image-only, 10MB max ────────────────────────
@@ -107,9 +99,6 @@ router.post(
   validateImage,
   visualSearch,
 );
-
-router.post("/embed/:productId", embedLimiter, embedProduct);
-router.post("/embed/batch", embedLimiter, batchEmbedProducts);
 
 // Route-level error handler
 router.use((err, _req, res, _next) => {
